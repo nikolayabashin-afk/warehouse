@@ -46,6 +46,10 @@ function findHeader(headers: string[], candidates: string[]) {
   return undefined
 }
 
+function formError(path: '/move' | '/ship', message: string): never {
+  redirect(`${path}?error=${encodeURIComponent(message)}`)
+}
+
 async function getOrCreateLocation(codeRaw: string) {
   const code = normalizeLocation(codeRaw)
   if (!code) throw new Error('Укажите место хранения')
@@ -163,14 +167,19 @@ export async function shipStock(formData: FormData) {
   const note = clean(formData.get('note'))
 
   const from = await prisma.location.findUnique({ where: { code: fromCode } })
-  if (!from) throw new Error('Исходное место хранения не найдено')
+  if (!from) formError('/ship', 'Исходное место хранения не найдено')
+
+  const source = await prisma.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
+  if (!source || source.qty < qty) {
+    formError('/ship', `Недостаточно товара для отгрузки. Доступно: ${source?.qty ?? 0}, вы указали: ${qty}.`)
+  }
 
   await prisma.$transaction(async tx => {
-    const source = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
-    if (!source || source.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
+    const current = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
+    if (!current || current.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
 
-    if (source.qty === qty) await tx.inventory.delete({ where: { id: source.id } })
-    else await tx.inventory.update({ where: { id: source.id }, data: { qty: source.qty - qty } })
+    if (current.qty === qty) await tx.inventory.delete({ where: { id: current.id } })
+    else await tx.inventory.update({ where: { id: current.id }, data: { qty: current.qty - qty } })
 
     await tx.product.update({ where: { id: productId }, data: { lastLocation: from.code } })
     await tx.movement.create({ data: { type: 'ISSUE', productId, fromLocationId: from.id, qty, note } })
@@ -187,18 +196,23 @@ export async function moveStock(formData: FormData) {
   const qty = asInt(formData.get('qty'))
   const note = clean(formData.get('note'))
 
-  if (fromCode === toCode) throw new Error('Исходное и новое место хранения должны отличаться')
+  if (fromCode === toCode) formError('/move', 'Исходное и новое место хранения должны отличаться')
 
   const from = await prisma.location.findUnique({ where: { code: fromCode } })
-  if (!from) throw new Error('Исходное место хранения не найдено')
+  if (!from) formError('/move', 'Исходное место хранения не найдено')
   const to = await getOrCreateLocation(toCode)
 
-  await prisma.$transaction(async tx => {
-    const source = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
-    if (!source || source.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
+  const source = await prisma.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
+  if (!source || source.qty < qty) {
+    formError('/move', `Недостаточно товара для перемещения. Доступно: ${source?.qty ?? 0}, вы указали: ${qty}.`)
+  }
 
-    if (source.qty === qty) await tx.inventory.delete({ where: { id: source.id } })
-    else await tx.inventory.update({ where: { id: source.id }, data: { qty: source.qty - qty } })
+  await prisma.$transaction(async tx => {
+    const current = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
+    if (!current || current.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
+
+    if (current.qty === qty) await tx.inventory.delete({ where: { id: current.id } })
+    else await tx.inventory.update({ where: { id: current.id }, data: { qty: current.qty - qty } })
 
     const target = await tx.inventory.findFirst({ where: { productId, locationId: to.id, batch: null } })
     if (target) await tx.inventory.update({ where: { id: target.id }, data: { qty: target.qty + qty } })
