@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { prisma } from '@/lib/prisma'
 import { moveStock } from '@/lib/actions'
+import { StockPickerButton } from '@/app/components/StockPickerButton'
 
 export default async function Move() {
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
@@ -14,7 +15,7 @@ export default async function Move() {
 
   return <div>
     <h1 className="text-3xl font-bold mb-2">Перемещение товара</h1>
-    <p className="text-sm text-gray-500 mb-6">Переместите товар с одного места хранения на другое.</p>
+    <p className="text-sm text-gray-500 mb-6">Выберите строку остатка снизу или заполните форму вручную.</p>
 
     <form action={moveStock} className="card p-5 grid gap-4 max-w-2xl mb-6">
       <label className="text-sm font-medium">Товар<select className="input mt-1" name="productId" required>{products.map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
@@ -27,9 +28,9 @@ export default async function Move() {
     </form>
 
     <div className="card overflow-hidden">
-      <table className="w-full"><thead><tr><th className="th">Товар</th><th className="th">Место хранения</th><th className="th">Доступно</th></tr></thead><tbody>
-        {inventory.map(i => <tr key={i.id}><td className="td"><div className="font-medium">{i.product.name}</div><div className="text-xs text-gray-500">{i.product.sku}</div></td><td className="td font-bold">{i.location.code}</td><td className="td">{i.qty}</td></tr>)}
-        {!inventory.length && <tr><td className="td text-gray-500" colSpan={3}>Нет доступных остатков.</td></tr>}
+      <table className="w-full"><thead><tr><th className="th">Товар</th><th className="th">Место хранения</th><th className="th">Доступно</th><th className="th">Действие</th></tr></thead><tbody>
+        {inventory.map(i => <tr key={i.id}><td className="td"><div className="font-medium">{i.product.name}</div><div className="text-xs text-gray-500">{i.product.sku}</div></td><td className="td font-bold">{i.location.code}</td><td className="td">{i.qty}</td><td className="td"><StockPickerButton mode="move" productId={i.productId} locationCode={i.location.code} qty={i.qty} /></td></tr>)}
+        {!inventory.length && <tr><td className="td text-gray-500" colSpan={4}>Нет доступных остатков.</td></tr>}
       </tbody></table>
     </div>
   </div>
