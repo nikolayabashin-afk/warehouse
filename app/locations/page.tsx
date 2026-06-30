@@ -12,13 +12,15 @@ export default async function Locations() {
       <h1 className="text-3xl font-bold">Места хранения</h1>
       <Link className="btn" href="/locations/new">Добавить место</Link>
     </div>
-    <div className="card overflow-hidden"><table className="w-full"><thead><tr><th className="th">Код</th><th className="th">Тип</th><th className="th">Зона</th><th className="th">Строк</th><th className="th">Остаток</th><th className="th">Вместимость</th><th className="th">Статус</th><th className="th">Содержимое</th><th className="th">Действие</th></tr></thead><tbody>
+    <div className="card overflow-hidden"><table className="w-full"><thead><tr><th className="th">Код</th><th className="th">Тип</th><th className="th">Зона</th><th className="th">Позиций</th><th className="th">Остаток</th><th className="th">Вместимость</th><th className="th">Статус</th><th className="th">Содержимое</th><th className="th">Действие</th></tr></thead><tbody>
       {locations.map(l => {
-        const total = l.inventory.reduce((s,i)=>s+i.qty,0)
+        const activeRows = l.inventory.filter(i => i.qty > 0)
+        const total = activeRows.reduce((s,i)=>s+i.qty,0)
         const status = l.capacity ? total > l.capacity ? 'Перегружено' : total === l.capacity ? 'Заполнено' : total > 0 ? 'Частично' : 'Свободно' : total > 0 ? 'Используется' : 'Свободно'
-        return <tr key={l.id}><td className="td font-bold">{l.code}</td><td className="td">{l.type}</td><td className="td">{l.zone || ''}</td><td className="td">{l.inventory.length}</td><td className="td">{total}</td><td className="td">{l.capacity || ''}</td><td className="td">{status}</td><td className="td">{l.inventory.map(i => `${i.product.name}: ${i.qty}`).join(', ')}</td><td className="td">{total === 0 ? <form action={removeLocation}><input type="hidden" name="locationId" value={l.id} /><ConfirmSubmitButton className="text-sm text-red-600 hover:underline" message="Удалить это место хранения из активного списка? История движений сохранится.">Удалить</ConfirmSubmitButton></form> : <span className="text-xs text-gray-400">Есть остаток</span>}</td></tr>
+        return <tr key={l.id}><td className="td font-bold">{l.code}</td><td className="td">{l.type}</td><td className="td">{l.zone || ''}</td><td className="td">{activeRows.length}</td><td className="td">{total}</td><td className="td">{l.capacity || ''}</td><td className="td">{status}</td><td className="td">{activeRows.map(i => `${i.product.name}: ${i.qty}`).join(', ')}</td><td className="td">{total === 0 ? <form action={removeLocation}><input type="hidden" name="locationId" value={l.id} /><ConfirmSubmitButton className="text-sm text-red-600 hover:underline" message="Удалить это место хранения из активного списка? История движений сохранится.">Удалить</ConfirmSubmitButton></form> : <span className="text-xs text-gray-400">Есть остаток</span>}</td></tr>
       })}
       {!locations.length && <tr><td className="td text-gray-500" colSpan={9}>Места хранения не найдены.</td></tr>}
     </tbody></table></div>
+    <p className="text-sm text-gray-500 mt-3">“Позиций” — это количество разных товаров/строк остатков в конкретном месте хранения.</p>
   </div>
 }
