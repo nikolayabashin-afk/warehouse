@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { importWarehouseExcel } from '@/lib/actions'
+import { ClearFormButton } from '@/app/components/ClearFormButton'
 
 export default function ImportPage() {
   return <div>
@@ -17,7 +18,7 @@ export default function ImportPage() {
       <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
         Если в одной строке указано несколько мест хранения, например “A16 A17”, импорт создаст отдельные места и поставит количество 0. После этого количество нужно распределить вручную.
       </div>
-      <button className="btn w-fit">Импортировать Excel</button>
+      <div className="flex gap-3"><button className="btn w-fit">Импортировать Excel</button><ClearFormButton /></div>
     </form>
   </div>
 }
