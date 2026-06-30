@@ -5,8 +5,9 @@ import Link from 'next/link'
 export const metadata: Metadata = { title: 'Warehouse WMS', description: 'Small warehouse management system' }
 
 const nav = [
-  ['Dashboard', '/dashboard'], ['Search', '/search'], ['Products', '/products'], ['Locations', '/locations'],
-  ['Inventory', '/inventory'], ['Receive', '/receive'], ['Move', '/move']
+  ['Dashboard', '/dashboard'], ['Search', '/search'], ['Products', '/products'], ['Add product', '/products/new'],
+  ['Locations', '/locations'], ['Add location', '/locations/new'], ['Inventory', '/inventory'], ['Receive', '/receive'],
+  ['Move', '/move'], ['Movements', '/movements'], ['Excel import', '/import']
 ]
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
