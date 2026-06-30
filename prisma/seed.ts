@@ -21,9 +21,7 @@ async function main() {
       create: { code, type: code.startsWith('OV') ? 'OVERFLOW' : code.startsWith('FL') ? 'FLOOR' : 'PATHWAY' }
     })
   }
-}
-
-await prisma.product.upsert({
+  await prisma.product.upsert({
   where: { sku: 'TEST-001' },
   update: {},
   create: {
@@ -52,5 +50,8 @@ await prisma.product.upsert({
     manufacturer: 'Test Manufacturer'
   }
 })
+}
+
+
 
 main().finally(() => prisma.$disconnect())
