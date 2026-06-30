@@ -49,11 +49,11 @@ function findHeader(headers: string[], candidates: string[]) {
 async function getOrCreateLocation(codeRaw: string) {
   const code = normalizeLocation(codeRaw)
   if (!code) throw new Error('Location is required')
-  return prisma.location.upsert({ where: { code }, update: {}, create: { code } })
+  return prisma.location.upsert({ where: { code }, update: { active: true }, create: { code } })
 }
 
 function revalidateWarehousePages() {
-  for (const path of ['/', '/dashboard', '/products', '/locations', '/inventory', '/search', '/receive', '/move', '/movements', '/import']) {
+  for (const path of ['/', '/dashboard', '/products', '/locations', '/inventory', '/search', '/receive', '/ship', '/move', '/movements', '/import']) {
     revalidatePath(path)
   }
 }
@@ -74,6 +74,23 @@ export async function createProduct(formData: FormData) {
       preferredLocation: optional(formData.get('preferredLocation'))
     }
   })
+
+  revalidateWarehousePages()
+  redirect('/products')
+}
+
+export async function removeProduct(formData: FormData) {
+  const productId = clean(formData.get('productId'))
+  if (!productId) throw new Error('Product is required')
+
+  const inventory = await prisma.inventory.findMany({ where: { productId } })
+  const total = inventory.reduce((sum, row) => sum + row.qty, 0)
+  if (total > 0) throw new Error('Cannot remove product while it still has stock. Ship or move stock out first.')
+
+  await prisma.$transaction([
+    prisma.inventory.deleteMany({ where: { productId, qty: 0 } }),
+    prisma.product.update({ where: { id: productId }, data: { archived: true } })
+  ])
 
   revalidateWarehousePages()
   redirect('/products')
@@ -100,6 +117,23 @@ export async function createLocation(formData: FormData) {
   redirect('/locations')
 }
 
+export async function removeLocation(formData: FormData) {
+  const locationId = clean(formData.get('locationId'))
+  if (!locationId) throw new Error('Location is required')
+
+  const inventory = await prisma.inventory.findMany({ where: { locationId } })
+  const total = inventory.reduce((sum, row) => sum + row.qty, 0)
+  if (total > 0) throw new Error('Cannot remove location while it still contains stock. Move or ship stock first.')
+
+  await prisma.$transaction([
+    prisma.inventory.deleteMany({ where: { locationId, qty: 0 } }),
+    prisma.location.update({ where: { id: locationId }, data: { active: false } })
+  ])
+
+  revalidateWarehousePages()
+  redirect('/locations')
+}
+
 export async function receiveStock(formData: FormData) {
   const productId = clean(formData.get('productId'))
   const locationCode = clean(formData.get('location'))
@@ -116,6 +150,30 @@ export async function receiveStock(formData: FormData) {
     }
     await tx.product.update({ where: { id: productId }, data: { lastLocation: location.code } })
     await tx.movement.create({ data: { type: 'RECEIVE', productId, toLocationId: location.id, qty, note } })
+  })
+
+  revalidateWarehousePages()
+  redirect('/inventory')
+}
+
+export async function shipStock(formData: FormData) {
+  const productId = clean(formData.get('productId'))
+  const fromCode = normalizeLocation(clean(formData.get('fromLocation')))
+  const qty = asInt(formData.get('qty'))
+  const note = clean(formData.get('note'))
+
+  const from = await prisma.location.findUnique({ where: { code: fromCode } })
+  if (!from) throw new Error('Source location does not exist')
+
+  await prisma.$transaction(async tx => {
+    const source = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
+    if (!source || source.qty < qty) throw new Error('Not enough stock in source location')
+
+    if (source.qty === qty) await tx.inventory.delete({ where: { id: source.id } })
+    else await tx.inventory.update({ where: { id: source.id }, data: { qty: source.qty - qty } })
+
+    await tx.product.update({ where: { id: productId }, data: { lastLocation: from.code } })
+    await tx.movement.create({ data: { type: 'ISSUE', productId, fromLocationId: from.id, qty, note } })
   })
 
   revalidateWarehousePages()
@@ -194,13 +252,13 @@ export async function importWarehouseExcel(formData: FormData) {
 
     const product = await prisma.product.upsert({
       where: { sku },
-      update: { name, manufacturer, model, category, lastLocation: rawLoc || undefined },
+      update: { name, manufacturer, model, category, archived: false, lastLocation: rawLoc || undefined },
       create: { sku, name, manufacturer, model, category, lastLocation: rawLoc || undefined }
     })
 
     const locations = splitLocations(rawLoc)
     for (const code of locations) {
-      const location = await prisma.location.upsert({ where: { code }, update: {}, create: { code } })
+      const location = await prisma.location.upsert({ where: { code }, update: { active: true }, create: { code } })
       const existing = await prisma.inventory.findFirst({ where: { productId: product.id, locationId: location.id, batch: null } })
       const rowQty = locations.length === 1 ? qty : 0
       const note = locations.length > 1 ? 'Manual quantity distribution needed after Excel import' : null
