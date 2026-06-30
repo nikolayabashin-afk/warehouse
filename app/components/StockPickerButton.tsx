@@ -5,12 +5,13 @@ export function StockPickerButton({ productId, locationCode, qty, mode }: { prod
     type="button"
     className="text-sm text-blue-600 hover:underline"
     onClick={() => {
-      const product = document.querySelector<HTMLSelectElement>('select[name="productId"]')
+      const hiddenProduct = document.querySelector<HTMLInputElement>('input[name="productId"]')
       const fromLocation = document.querySelector<HTMLInputElement>('input[name="fromLocation"]')
       const quantity = document.querySelector<HTMLInputElement>('input[name="qty"]')
       const toLocation = document.querySelector<HTMLInputElement>('input[name="toLocation"]')
 
-      if (product) product.value = productId
+      if (hiddenProduct) hiddenProduct.value = productId
+      window.dispatchEvent(new CustomEvent('warehouse:select-product', { detail: { productId } }))
       if (fromLocation) fromLocation.value = locationCode
       if (quantity) quantity.value = String(qty)
       if (mode === 'move' && toLocation) toLocation.focus()
