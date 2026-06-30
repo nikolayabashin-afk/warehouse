@@ -11,7 +11,7 @@ export default function ImportPage() {
       <Link className="btn" href="/inventory">Back to inventory</Link>
     </div>
 
-    <form action={importWarehouseExcel} className="card p-5 grid gap-4 max-w-2xl">
+    <form action={importWarehouseExcel} encType="multipart/form-data" className="card p-5 grid gap-4 max-w-2xl">
       <label className="text-sm font-medium">Excel file<input className="input mt-1" name="file" type="file" accept=".xlsx,.xls" required /></label>
       <label className="text-sm font-medium">Sheet name<input className="input mt-1" name="sheetName" placeholder="Optional. Example: Лист2" /></label>
       <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
