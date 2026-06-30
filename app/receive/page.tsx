@@ -5,8 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { receiveStock } from '@/lib/actions'
 
 export default async function Receive() {
-  const products = await prisma.product.findMany({ take: 500, orderBy: { name: 'asc' } })
-  const locations = await prisma.location.findMany({ take: 500, orderBy: { code: 'asc' } })
+  const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
+  const locations = await prisma.location.findMany({ where: { active: true }, take: 500, orderBy: { code: 'asc' } })
 
   return <div>
     <div className="mb-6 flex items-center justify-between gap-4">
