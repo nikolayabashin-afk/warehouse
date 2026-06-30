@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type ProductOption = {
   id: string
@@ -10,9 +10,26 @@ type ProductOption = {
   model: string | null
 }
 
+function formatProduct(product: ProductOption) {
+  return `${product.sku} ${product.name}`
+}
+
 export function ProductPicker({ products, name = 'productId' }: { products: ProductOption[], name?: string }) {
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState(products[0]?.id || '')
+
+  useEffect(() => {
+    function handleExternalSelect(event: Event) {
+      const detail = (event as CustomEvent<{ productId: string }>).detail
+      const product = products.find(item => item.id === detail?.productId)
+      if (!product) return
+      setSelectedId(product.id)
+      setQuery(formatProduct(product))
+    }
+
+    window.addEventListener('warehouse:select-product', handleExternalSelect)
+    return () => window.removeEventListener('warehouse:select-product', handleExternalSelect)
+  }, [products])
 
   const selected = products.find(product => product.id === selectedId)
   const normalizedQuery = query.trim().toLowerCase()
@@ -40,7 +57,7 @@ export function ProductPicker({ products, name = 'productId' }: { products: Prod
         className={`block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${product.id === selectedId ? 'bg-blue-50' : ''}`}
         onClick={() => {
           setSelectedId(product.id)
-          setQuery(`${product.sku} ${product.name}`)
+          setQuery(formatProduct(product))
         }}
       >
         <div className="font-medium">{product.sku} — {product.name}</div>
