@@ -23,4 +23,34 @@ async function main() {
   }
 }
 
+await prisma.product.upsert({
+  where: { sku: 'TEST-001' },
+  update: {},
+  create: {
+    sku: 'TEST-001',
+    name: 'Test Syringe',
+    manufacturer: 'Test Manufacturer'
+  }
+})
+
+await prisma.product.upsert({
+  where: { sku: 'TEST-002' },
+  update: {},
+  create: {
+    sku: 'TEST-002',
+    name: 'Test Catheter',
+    manufacturer: 'Test Manufacturer'
+  }
+})
+
+await prisma.product.upsert({
+  where: { sku: 'TEST-003' },
+  update: {},
+  create: {
+    sku: 'TEST-003',
+    name: 'Test Gloves',
+    manufacturer: 'Test Manufacturer'
+  }
+})
+
 main().finally(() => prisma.$disconnect())
