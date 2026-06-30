@@ -6,7 +6,8 @@ import { StockPickerButton } from '@/app/components/StockPickerButton'
 import { ClearFormButton } from '@/app/components/ClearFormButton'
 import { ProductPicker } from '@/app/components/ProductPicker'
 
-export default async function Ship() {
+export default async function Ship({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error = '' } = await searchParams
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
   const locations = await prisma.location.findMany({ where: { active: true }, take: 500, orderBy: { code: 'asc' } })
   const inventory = await prisma.inventory.findMany({
@@ -18,6 +19,8 @@ export default async function Ship() {
   return <div>
     <h1 className="text-3xl font-bold mb-2">Отгрузка товара</h1>
     <p className="text-sm text-gray-500 mb-6">Выберите строку остатка снизу или найдите товар через поиск.</p>
+
+    {error && <div className="mb-4 max-w-2xl rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">{error}</div>}
 
     <form action={shipStock} className="card p-5 grid gap-4 max-w-2xl mb-6">
       <ProductPicker products={products} />
