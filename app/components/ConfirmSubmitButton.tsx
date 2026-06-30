@@ -1,6 +1,8 @@
 'use client'
 
-export function ConfirmSubmitButton({ message, children, className }: { message: string, children: React.ReactNode, className?: string }) {
+import type { ReactNode } from 'react'
+
+export function ConfirmSubmitButton({ message, children, className }: { message: string, children: ReactNode, className?: string }) {
   return <button
     type="submit"
     className={className}
