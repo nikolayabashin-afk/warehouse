@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma'
 
 export default async function Products({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
