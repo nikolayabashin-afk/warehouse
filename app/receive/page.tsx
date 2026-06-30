@@ -1,15 +1,26 @@
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { receiveStock } from '@/lib/actions'
 
 export default async function Receive() {
   const products = await prisma.product.findMany({ take: 500, orderBy: { name: 'asc' } })
+  const locations = await prisma.location.findMany({ take: 500, orderBy: { code: 'asc' } })
+
   return <div>
-    <h1 className="text-3xl font-bold mb-6">Receive stock</h1>
+    <div className="mb-6 flex items-center justify-between gap-4">
+      <div>
+        <h1 className="text-3xl font-bold">Receive stock</h1>
+        <p className="text-sm text-gray-500 mt-1">Add incoming stock to an existing or new location.</p>
+      </div>
+      <Link className="btn" href="/products/new">Add product</Link>
+    </div>
+
     <form action={receiveStock} className="card p-5 grid gap-4 max-w-2xl">
-      <label className="text-sm font-medium">Product<select className="input mt-1" name="productId">{products.map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
-      <label className="text-sm font-medium">Location<input className="input mt-1" name="location" placeholder="A16 / OV01 / FL01" required /></label>
+      <label className="text-sm font-medium">Product<select className="input mt-1" name="productId" required>{products.map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
+      <label className="text-sm font-medium">Location<input className="input mt-1" name="location" list="locations" placeholder="A16 / OV01 / FL01" required /></label>
+      <datalist id="locations">{locations.map(l => <option key={l.id} value={l.code} />)}</datalist>
       <label className="text-sm font-medium">Quantity<input className="input mt-1" name="qty" type="number" min="1" required /></label>
       <label className="text-sm font-medium">Note<input className="input mt-1" name="note" /></label>
       <button className="btn w-fit">Receive</button>
