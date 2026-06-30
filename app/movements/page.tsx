@@ -1,13 +1,8 @@
 export const dynamic = 'force-dynamic'
 
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
-
-const typeLabel: Record<string, string> = {
-  RECEIVE: 'Приход',
-  ISSUE: 'Отгрузка',
-  MOVE: 'Перемещение',
-  ADJUST: 'Корректировка'
-}
+import { OperationBadge } from '@/app/components/OperationBadge'
 
 export default async function Movements() {
   const movements = await prisma.movement.findMany({
@@ -26,10 +21,10 @@ export default async function Movements() {
         <tbody>
           {movements.map(m => <tr key={m.id}>
             <td className="td whitespace-nowrap">{m.createdAt.toLocaleString('ru-RU')}</td>
-            <td className="td font-medium">{typeLabel[m.type] || m.type}</td>
-            <td className="td"><div className="font-medium">{m.product.name}</div><div className="text-xs text-gray-500">{m.product.sku}</div></td>
-            <td className="td">{m.fromLocation?.code || '-'}</td>
-            <td className="td">{m.toLocation?.code || '-'}</td>
+            <td className="td"><OperationBadge type={m.type} /></td>
+            <td className="td"><Link className="font-medium hover:underline" href={`/products/${m.product.id}`}>{m.product.name}</Link><div className="text-xs text-gray-500">{m.product.sku}</div></td>
+            <td className="td">{m.fromLocation ? <Link className="text-blue-600 hover:underline" href={`/locations/${m.fromLocation.id}`}>{m.fromLocation.code}</Link> : '-'}</td>
+            <td className="td">{m.toLocation ? <Link className="text-blue-600 hover:underline" href={`/locations/${m.toLocation.id}`}>{m.toLocation.code}</Link> : '-'}</td>
             <td className="td font-semibold">{m.qty}</td>
             <td className="td">{m.note || ''}</td>
           </tr>)}
