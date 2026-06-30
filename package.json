@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "latest",
-    "@prisma/client": "latest",
+    "@prisma/client": "6",
     "bcryptjs": "latest",
     "clsx": "latest",
     "next": "latest",
@@ -35,7 +35,7 @@
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
     "postcss": "latest",
-    "prisma": "latest",
+    "prisma": "6",
     "tailwindcss": "latest",
     "tsx": "latest",
     "typescript": "latest"
