@@ -50,14 +50,30 @@ function formError(path: '/move' | '/ship', message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`)
 }
 
+function scannerError(message: string): never {
+  redirect(`/scanner?error=${encodeURIComponent(message)}`)
+}
+
+function scannerSuccess(message: string): never {
+  redirect(`/scanner?success=${encodeURIComponent(message)}`)
+}
+
 async function getOrCreateLocation(codeRaw: string) {
   const code = normalizeLocation(codeRaw)
   if (!code) throw new Error('Укажите место хранения')
   return prisma.location.upsert({ where: { code }, update: { active: true }, create: { code } })
 }
 
+async function findProductByScan(scanRaw: string) {
+  const scan = clean(scanRaw).toUpperCase()
+  if (!scan) scannerError('Отсканируйте или введите артикул товара')
+  const product = await prisma.product.findFirst({ where: { archived: false, sku: { equals: scan, mode: 'insensitive' } } })
+  if (!product) scannerError(`Товар с артикулом/штрихкодом ${scan} не найден`)
+  return product
+}
+
 function revalidateWarehousePages() {
-  for (const path of ['/', '/dashboard', '/products', '/locations', '/inventory', '/search', '/receive', '/ship', '/move', '/movements', '/import']) {
+  for (const path of ['/', '/dashboard', '/products', '/locations', '/inventory', '/search', '/receive', '/ship', '/move', '/scanner', '/movements', '/import']) {
     revalidatePath(path)
   }
 }
@@ -224,6 +240,72 @@ export async function moveStock(formData: FormData) {
 
   revalidateWarehousePages()
   redirect('/inventory')
+}
+
+export async function scannerOperation(formData: FormData) {
+  const mode = clean(formData.get('mode'))
+  const product = await findProductByScan(clean(formData.get('productScan')))
+  const qty = asInt(formData.get('qty'))
+  const note = clean(formData.get('note')) || 'Операция через мобильный сканер'
+
+  if (mode === 'receive') {
+    const to = await getOrCreateLocation(clean(formData.get('toLocation')))
+    await prisma.$transaction(async tx => {
+      const existing = await tx.inventory.findFirst({ where: { productId: product.id, locationId: to.id, batch: null } })
+      if (existing) await tx.inventory.update({ where: { id: existing.id }, data: { qty: existing.qty + qty } })
+      else await tx.inventory.create({ data: { productId: product.id, locationId: to.id, qty } })
+      await tx.product.update({ where: { id: product.id }, data: { lastLocation: to.code } })
+      await tx.movement.create({ data: { type: 'RECEIVE', productId: product.id, toLocationId: to.id, qty, note } })
+    })
+    revalidateWarehousePages()
+    scannerSuccess(`Приход выполнен: ${product.sku}, ${qty} шт. → ${to.code}`)
+  }
+
+  if (mode === 'ship') {
+    const fromCode = normalizeLocation(clean(formData.get('fromLocation')))
+    const from = await prisma.location.findUnique({ where: { code: fromCode } })
+    if (!from) scannerError('Исходное место хранения не найдено')
+    const source = await prisma.inventory.findFirst({ where: { productId: product.id, locationId: from.id, batch: null } })
+    if (!source || source.qty < qty) scannerError(`Недостаточно товара. Доступно: ${source?.qty ?? 0}, вы указали: ${qty}.`)
+
+    await prisma.$transaction(async tx => {
+      const current = await tx.inventory.findFirst({ where: { productId: product.id, locationId: from.id, batch: null } })
+      if (!current || current.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
+      if (current.qty === qty) await tx.inventory.delete({ where: { id: current.id } })
+      else await tx.inventory.update({ where: { id: current.id }, data: { qty: current.qty - qty } })
+      await tx.product.update({ where: { id: product.id }, data: { lastLocation: from.code } })
+      await tx.movement.create({ data: { type: 'ISSUE', productId: product.id, fromLocationId: from.id, qty, note } })
+    })
+    revalidateWarehousePages()
+    scannerSuccess(`Отгрузка выполнена: ${product.sku}, ${qty} шт. из ${from.code}`)
+  }
+
+  if (mode === 'move') {
+    const fromCode = normalizeLocation(clean(formData.get('fromLocation')))
+    const toCode = normalizeLocation(clean(formData.get('toLocation')))
+    if (fromCode === toCode) scannerError('Исходное и новое место хранения должны отличаться')
+    const from = await prisma.location.findUnique({ where: { code: fromCode } })
+    if (!from) scannerError('Исходное место хранения не найдено')
+    const to = await getOrCreateLocation(toCode)
+    const source = await prisma.inventory.findFirst({ where: { productId: product.id, locationId: from.id, batch: null } })
+    if (!source || source.qty < qty) scannerError(`Недостаточно товара. Доступно: ${source?.qty ?? 0}, вы указали: ${qty}.`)
+
+    await prisma.$transaction(async tx => {
+      const current = await tx.inventory.findFirst({ where: { productId: product.id, locationId: from.id, batch: null } })
+      if (!current || current.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
+      if (current.qty === qty) await tx.inventory.delete({ where: { id: current.id } })
+      else await tx.inventory.update({ where: { id: current.id }, data: { qty: current.qty - qty } })
+      const target = await tx.inventory.findFirst({ where: { productId: product.id, locationId: to.id, batch: null } })
+      if (target) await tx.inventory.update({ where: { id: target.id }, data: { qty: target.qty + qty } })
+      else await tx.inventory.create({ data: { productId: product.id, locationId: to.id, qty } })
+      await tx.product.update({ where: { id: product.id }, data: { lastLocation: to.code } })
+      await tx.movement.create({ data: { type: 'MOVE', productId: product.id, fromLocationId: from.id, toLocationId: to.id, qty, note } })
+    })
+    revalidateWarehousePages()
+    scannerSuccess(`Перемещение выполнено: ${product.sku}, ${qty} шт. ${from.code} → ${to.code}`)
+  }
+
+  scannerError('Выберите действие: приход, перемещение или отгрузка')
 }
 
 export async function importWarehouseExcel(formData: FormData) {
