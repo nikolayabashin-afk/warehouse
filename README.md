@@ -97,6 +97,8 @@ For first launch, you may use `npm run db:push` locally, then later switch to mi
 - Capacity and overstock control
 - QR code pages for each location
 - Product creation/edit forms
+
+- deployment trigger
 - Export back to Excel
 - Receiving history UI
 - Barcode/QR scanner UI
