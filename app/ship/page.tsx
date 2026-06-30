@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { shipStock } from '@/lib/actions'
 import { StockPickerButton } from '@/app/components/StockPickerButton'
 import { ClearFormButton } from '@/app/components/ClearFormButton'
+import { ProductPicker } from '@/app/components/ProductPicker'
 
 export default async function Ship() {
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
@@ -16,10 +17,10 @@ export default async function Ship() {
 
   return <div>
     <h1 className="text-3xl font-bold mb-2">Отгрузка товара</h1>
-    <p className="text-sm text-gray-500 mb-6">Выберите строку остатка снизу или заполните форму вручную.</p>
+    <p className="text-sm text-gray-500 mb-6">Выберите строку остатка снизу или найдите товар через поиск.</p>
 
     <form action={shipStock} className="card p-5 grid gap-4 max-w-2xl mb-6">
-      <label className="text-sm font-medium">Товар<select className="input mt-1" name="productId" required>{products.map(p => <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
+      <ProductPicker products={products} />
       <label className="text-sm font-medium">Откуда<input className="input mt-1" name="fromLocation" list="locations" placeholder="A16" required /></label>
       <datalist id="locations">{locations.map(l => <option key={l.id} value={l.code} />)}</datalist>
       <label className="text-sm font-medium">Количество<input className="input mt-1" name="qty" type="number" min="1" required /></label>
