@@ -14,9 +14,9 @@ function optional(value: unknown) {
   return text ? text : null
 }
 
-function asInt(value: FormDataEntryValue | null, fieldName = 'Quantity') {
+function asInt(value: FormDataEntryValue | null, fieldName = 'Количество') {
   const n = Number(value)
-  if (!Number.isInteger(n) || n <= 0) throw new Error(`${fieldName} must be a positive integer`)
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`${fieldName} должно быть положительным целым числом`)
   return n
 }
 
@@ -48,7 +48,7 @@ function findHeader(headers: string[], candidates: string[]) {
 
 async function getOrCreateLocation(codeRaw: string) {
   const code = normalizeLocation(codeRaw)
-  if (!code) throw new Error('Location is required')
+  if (!code) throw new Error('Укажите место хранения')
   return prisma.location.upsert({ where: { code }, update: { active: true }, create: { code } })
 }
 
@@ -61,8 +61,8 @@ function revalidateWarehousePages() {
 export async function createProduct(formData: FormData) {
   const sku = clean(formData.get('sku')).toUpperCase()
   const name = clean(formData.get('name'))
-  if (!sku) throw new Error('SKU is required')
-  if (!name) throw new Error('Product name is required')
+  if (!sku) throw new Error('Укажите артикул')
+  if (!name) throw new Error('Укажите наименование товара')
 
   await prisma.product.create({
     data: {
@@ -81,11 +81,11 @@ export async function createProduct(formData: FormData) {
 
 export async function removeProduct(formData: FormData) {
   const productId = clean(formData.get('productId'))
-  if (!productId) throw new Error('Product is required')
+  if (!productId) throw new Error('Укажите товар')
 
   const inventory = await prisma.inventory.findMany({ where: { productId } })
   const total = inventory.reduce((sum, row) => sum + row.qty, 0)
-  if (total > 0) throw new Error('Cannot remove product while it still has stock. Ship or move stock out first.')
+  if (total > 0) throw new Error('Нельзя удалить товар, пока по нему есть остаток. Сначала отгрузите или переместите товар.')
 
   await prisma.$transaction([
     prisma.inventory.deleteMany({ where: { productId, qty: 0 } }),
@@ -98,10 +98,10 @@ export async function removeProduct(formData: FormData) {
 
 export async function createLocation(formData: FormData) {
   const code = normalizeLocation(clean(formData.get('code')))
-  if (!code) throw new Error('Location code is required')
+  if (!code) throw new Error('Укажите код места хранения')
 
   const capacityRaw = clean(formData.get('capacity'))
-  const capacity = capacityRaw ? asInt(formData.get('capacity'), 'Capacity') : null
+  const capacity = capacityRaw ? asInt(formData.get('capacity'), 'Вместимость') : null
 
   await prisma.location.create({
     data: {
@@ -119,11 +119,11 @@ export async function createLocation(formData: FormData) {
 
 export async function removeLocation(formData: FormData) {
   const locationId = clean(formData.get('locationId'))
-  if (!locationId) throw new Error('Location is required')
+  if (!locationId) throw new Error('Укажите место хранения')
 
   const inventory = await prisma.inventory.findMany({ where: { locationId } })
   const total = inventory.reduce((sum, row) => sum + row.qty, 0)
-  if (total > 0) throw new Error('Cannot remove location while it still contains stock. Move or ship stock first.')
+  if (total > 0) throw new Error('Нельзя удалить место хранения, пока в нём есть остаток. Сначала переместите или отгрузите товар.')
 
   await prisma.$transaction([
     prisma.inventory.deleteMany({ where: { locationId, qty: 0 } }),
@@ -163,11 +163,11 @@ export async function shipStock(formData: FormData) {
   const note = clean(formData.get('note'))
 
   const from = await prisma.location.findUnique({ where: { code: fromCode } })
-  if (!from) throw new Error('Source location does not exist')
+  if (!from) throw new Error('Исходное место хранения не найдено')
 
   await prisma.$transaction(async tx => {
     const source = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
-    if (!source || source.qty < qty) throw new Error('Not enough stock in source location')
+    if (!source || source.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
 
     if (source.qty === qty) await tx.inventory.delete({ where: { id: source.id } })
     else await tx.inventory.update({ where: { id: source.id }, data: { qty: source.qty - qty } })
@@ -187,15 +187,15 @@ export async function moveStock(formData: FormData) {
   const qty = asInt(formData.get('qty'))
   const note = clean(formData.get('note'))
 
-  if (fromCode === toCode) throw new Error('From and To locations must be different')
+  if (fromCode === toCode) throw new Error('Исходное и новое место хранения должны отличаться')
 
   const from = await prisma.location.findUnique({ where: { code: fromCode } })
-  if (!from) throw new Error('Source location does not exist')
+  if (!from) throw new Error('Исходное место хранения не найдено')
   const to = await getOrCreateLocation(toCode)
 
   await prisma.$transaction(async tx => {
     const source = await tx.inventory.findFirst({ where: { productId, locationId: from.id, batch: null } })
-    if (!source || source.qty < qty) throw new Error('Not enough stock in source location')
+    if (!source || source.qty < qty) throw new Error('Недостаточно товара на исходном месте хранения')
 
     if (source.qty === qty) await tx.inventory.delete({ where: { id: source.id } })
     else await tx.inventory.update({ where: { id: source.id }, data: { qty: source.qty - qty } })
@@ -214,7 +214,7 @@ export async function moveStock(formData: FormData) {
 
 export async function importWarehouseExcel(formData: FormData) {
   const upload = formData.get('file')
-  if (!(upload instanceof File) || upload.size === 0) throw new Error('Please upload an Excel file')
+  if (!(upload instanceof File) || upload.size === 0) throw new Error('Загрузите Excel-файл')
 
   const bytes = await upload.arrayBuffer()
   const wb = XLSX.read(Buffer.from(bytes), { type: 'buffer' })
@@ -226,7 +226,7 @@ export async function importWarehouseExcel(formData: FormData) {
       : wb.SheetNames[0]
 
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[sheetName], { defval: '' })
-  if (!rows.length) throw new Error('No rows found in Excel file')
+  if (!rows.length) throw new Error('В Excel-файле нет строк для импорта')
 
   const headers = Object.keys(rows[0])
   const nameCol = findHeader(headers, ['наименование', 'название', 'товар', 'общее название']) || headers[0]
@@ -261,7 +261,7 @@ export async function importWarehouseExcel(formData: FormData) {
       const location = await prisma.location.upsert({ where: { code }, update: { active: true }, create: { code } })
       const existing = await prisma.inventory.findFirst({ where: { productId: product.id, locationId: location.id, batch: null } })
       const rowQty = locations.length === 1 ? qty : 0
-      const note = locations.length > 1 ? 'Manual quantity distribution needed after Excel import' : null
+      const note = locations.length > 1 ? 'После импорта нужно вручную распределить количество по местам хранения' : null
 
       if (existing) await prisma.inventory.update({ where: { id: existing.id }, data: { qty: rowQty, note } })
       else await prisma.inventory.create({ data: { productId: product.id, locationId: location.id, qty: rowQty, note } })
