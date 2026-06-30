@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { receiveStock } from '@/lib/actions'
+import { ClearFormButton } from '@/app/components/ClearFormButton'
 
 export default async function Receive() {
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
@@ -23,7 +24,7 @@ export default async function Receive() {
       <datalist id="locations">{locations.map(l => <option key={l.id} value={l.code} />)}</datalist>
       <label className="text-sm font-medium">Количество<input className="input mt-1" name="qty" type="number" min="1" required /></label>
       <label className="text-sm font-medium">Примечание<input className="input mt-1" name="note" /></label>
-      <button className="btn w-fit">Принять на склад</button>
+      <div className="flex gap-3"><button className="btn w-fit">Принять на склад</button><ClearFormButton /></div>
     </form>
   </div>
 }
