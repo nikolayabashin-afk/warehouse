@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/prisma'
 import { shipStock } from '@/lib/actions'
 import { StockPickerButton } from '@/app/components/StockPickerButton'
+import { ClearFormButton } from '@/app/components/ClearFormButton'
 
 export default async function Ship() {
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
@@ -23,7 +24,7 @@ export default async function Ship() {
       <datalist id="locations">{locations.map(l => <option key={l.id} value={l.code} />)}</datalist>
       <label className="text-sm font-medium">Количество<input className="input mt-1" name="qty" type="number" min="1" required /></label>
       <label className="text-sm font-medium">Примечание<input className="input mt-1" name="note" placeholder="Заказ, получатель, проект и т.д." /></label>
-      <button className="btn w-fit">Отгрузить</button>
+      <div className="flex gap-3"><button className="btn w-fit">Отгрузить</button><ClearFormButton /></div>
     </form>
 
     <div className="card overflow-hidden">
