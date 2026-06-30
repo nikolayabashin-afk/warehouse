@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MobileMenu } from '@/app/components/MobileMenu'
 
 export const metadata: Metadata = { title: 'Склад WMS', description: 'Система управления складом' }
 
@@ -8,7 +9,7 @@ const navSections = [
   { title: '📊 Панель', links: [['Панель управления', '/dashboard']] },
   { title: '📦 Каталог', links: [['Товары', '/products']] },
   { title: '🏭 Склад', links: [['Остатки', '/inventory'], ['Места хранения', '/locations']] },
-  { title: '🔄 Операции', links: [['Приход', '/receive'], ['Перемещение', '/move'], ['Отгрузка', '/ship']] },
+  { title: '🔄 Операции', links: [['Приход', '/receive'], ['Перемещение', '/move'], ['Отгрузка', '/ship'], ['Сканер', '/scanner']] },
   { title: '📈 Отчёты', links: [['История движений', '/movements'], ['Импорт Excel', '/import']] }
 ]
 
@@ -25,13 +26,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </nav>
       </aside>
       <div className="flex-1 min-w-0">
-        <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur px-6 py-4 md:px-8">
-          <form action="/search" className="flex max-w-3xl gap-3">
-            <input className="input" name="q" placeholder="Глобальный поиск: артикул, товар, производитель, модель или место хранения" />
-            <button className="btn whitespace-nowrap">Найти</button>
-          </form>
+        <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur px-4 py-3 md:px-8 md:py-4">
+          <div className="flex items-center gap-3">
+            <MobileMenu navSections={navSections} />
+            <form action="/search" className="flex min-w-0 flex-1 gap-2 md:max-w-3xl md:gap-3">
+              <input className="input min-w-0" name="q" placeholder="Поиск: товар, артикул, место" />
+              <button className="btn whitespace-nowrap">Найти</button>
+            </form>
+          </div>
         </header>
-        <main className="p-6 md:p-8">{children}</main>
+        <main className="p-4 md:p-8">{children}</main>
       </div>
     </div>
   </body></html>
