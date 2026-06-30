@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  WORKER
+  VIEWER
+}
+
+enum MovementType {
+  RECEIVE
+  ISSUE
+  MOVE
+  ADJUST
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         Role     @default(VIEWER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  movements    Movement[]
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  sku               String   @unique
+  name              String
+  manufacturer      String?
+  model             String?
+  category          String?
+  preferredLocation String?
+  lastLocation      String?
+  archived          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  inventory         Inventory[]
+  movements         Movement[]
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  zone        String?
+  type        String   @default("PERMANENT")
+  capacity    Int?
+  active      Boolean  @default(true)
+  note        String?
+  createdAt   DateTime @default(now())
+  inventory   Inventory[]
+  fromMoves   Movement[] @relation("FromLocation")
+  toMoves     Movement[] @relation("ToLocation")
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  productId   String
+  locationId  String
+  qty         Int      @default(0)
+  batch       String?
+  expiryDate  DateTime?
+  note        String?
+  updatedAt   DateTime @updatedAt
+  product     Product  @relation(fields: [productId], references: [id])
+  location    Location @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId, batch])
+  @@index([locationId])
+  @@index([productId])
+}
+
+model Movement {
+  id             String       @id @default(cuid())
+  type           MovementType
+  productId      String
+  fromLocationId String?
+  toLocationId   String?
+  qty            Int
+  note           String?
+  createdAt      DateTime     @default(now())
+  userId         String?
+  product        Product      @relation(fields: [productId], references: [id])
+  fromLocation   Location?    @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation     Location?    @relation("ToLocation", fields: [toLocationId], references: [id])
+  user           User?        @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([productId])
+}
