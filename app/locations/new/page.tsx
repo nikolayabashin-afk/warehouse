@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createLocation } from '@/lib/actions'
+import { ClearFormButton } from '@/app/components/ClearFormButton'
 
 export default function NewLocation() {
   return <div>
@@ -22,7 +23,7 @@ export default function NewLocation() {
       <label className="text-sm font-medium">Зона<input className="input mt-1" name="zone" placeholder="A / B / Приёмка / Переполнение" /></label>
       <label className="text-sm font-medium">Вместимость<input className="input mt-1" name="capacity" type="number" min="1" placeholder="Необязательная вместимость по количеству" /></label>
       <label className="text-sm font-medium">Примечание<input className="input mt-1" name="note" placeholder="Необязательно" /></label>
-      <button className="btn w-fit">Создать место</button>
+      <div className="flex gap-3"><button className="btn w-fit">Создать место</button><ClearFormButton /></div>
     </form>
   </div>
 }
