@@ -36,7 +36,7 @@
     "autoprefixer": "latest",
     "postcss": "latest",
     "prisma": "6",
-    "tailwindcss": "latest",
+    "tailwindcss": "3.4.17",
     "tsx": "latest",
     "typescript": "latest"
   }
