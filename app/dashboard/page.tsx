@@ -23,12 +23,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     qty: { qty: recentDirection }
   }
   const today = startOfToday()
-  const [products, locations, occupiedLocations, totalStockAgg, movementsToday, recentMovements, topLocations] = await Promise.all([
+  const [products, locations, occupiedLocations, totalStockAgg, movementsToday, openTasks, recentMovements, topLocations] = await Promise.all([
     prisma.product.count({ where: { archived: false } }),
     prisma.location.count({ where: { active: true } }),
     prisma.location.count({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } } }),
     prisma.inventory.aggregate({ where: { qty: { gt: 0 }, product: { archived: false }, location: { active: true } }, _sum: { qty: true } }),
     prisma.movement.count({ where: { createdAt: { gte: today } } }),
+    prisma.warehouseTask.count({ where: { status: 'OPEN' } }),
     prisma.movement.findMany({ take: 8, orderBy: recentDirection && recentOrderByMap[recentSort] ? recentOrderByMap[recentSort] : { createdAt: 'desc' }, include: { product: true, fromLocation: true, toLocation: true } }),
     prisma.location.findMany({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } }, take: 10, orderBy: { code: 'asc' }, include: { inventory: { where: { qty: { gt: 0 } }, include: { product: true } } } })
   ])
@@ -36,12 +37,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const totalStock = totalStockAgg._sum.qty || 0
   const emptyLocations = Math.max(locations - occupiedLocations, 0)
   const cards = [
-    ['Товаров', products],
-    ['Общий остаток', totalStock],
-    ['Мест хранения', locations],
-    ['Занято мест', occupiedLocations],
-    ['Свободно мест', emptyLocations],
-    ['Движений сегодня', movementsToday]
+    ['Товаров', products, '/products'],
+    ['Общий остаток', totalStock, '/inventory'],
+    ['Мест хранения', locations, '/locations'],
+    ['Занято мест', occupiedLocations, '/locations'],
+    ['Свободно мест', emptyLocations, '/locations'],
+    ['Открытых задач', openTasks, '/my-tasks'],
+    ['Движений сегодня', movementsToday, '/movements']
   ]
 
   const sortedTopLocations = topLocations
@@ -62,16 +64,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 className="text-3xl font-bold">Панель управления</h1>
-        <p className="mt-1 text-sm text-gray-500">Быстрый обзор склада, остатков и последних операций.</p>
+        <p className="mt-1 text-sm text-gray-500">Быстрый обзор склада, остатков, задач и последних операций.</p>
       </div>
       <div className="flex gap-2">
+        <Link className="btn" href="/my-tasks">Мои задачи</Link>
         <Link className="btn" href="/receive">Приход</Link>
         <Link className="btn" href="/move">Перемещение</Link>
         <Link className="btn" href="/ship">Отгрузка</Link>
       </div>
     </div>
 
-    <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">{cards.map(([label, value]) => <div className="card p-5" key={label}><div className="text-sm text-gray-500">{label}</div><div className="mt-2 text-3xl font-bold">{value}</div></div>)}</div>
+    <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">{cards.map(([label, value, href]) => <Link className="card p-5 hover:shadow-md" key={label} href={href as string}><div className="text-sm text-gray-500">{label}</div><div className="mt-2 text-3xl font-bold">{value}</div></Link>)}</div>
 
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <section className="card overflow-hidden">
