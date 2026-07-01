@@ -21,45 +21,59 @@ enum MovementType {
   ADJUST
 }
 
+enum TaskType {
+  INCOMING
+}
+
+enum TaskStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  role         Role     @default(VIEWER)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  movements    Movement[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  passwordHash   String
+  role           Role            @default(VIEWER)
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  movements      Movement[]
+  createdTasks   WarehouseTask[] @relation("TaskCreator")
+  completedTasks WarehouseTask[] @relation("TaskCompleter")
 }
 
 model Product {
-  id                String   @id @default(cuid())
-  sku               String   @unique
+  id                String          @id @default(cuid())
+  sku               String          @unique
   name              String
   manufacturer      String?
   model             String?
   category          String?
   preferredLocation String?
   lastLocation      String?
-  archived          Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  archived          Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   inventory         Inventory[]
   movements         Movement[]
+  tasks             WarehouseTask[]
 }
 
 model Location {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String          @id @default(cuid())
+  code        String          @unique
   zone        String?
-  type        String   @default("PERMANENT")
+  type        String          @default("PERMANENT")
   capacity    Int?
-  active      Boolean  @default(true)
+  active      Boolean         @default(true)
   note        String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
   inventory   Inventory[]
-  fromMoves   Movement[] @relation("FromLocation")
-  toMoves     Movement[] @relation("ToLocation")
+  fromMoves   Movement[]      @relation("FromLocation")
+  toMoves     Movement[]      @relation("ToLocation")
+  taskTargets WarehouseTask[]
 }
 
 model Inventory {
@@ -94,6 +108,29 @@ model Movement {
   toLocation     Location?    @relation("ToLocation", fields: [toLocationId], references: [id])
   user           User?        @relation(fields: [userId], references: [id])
 
+  @@index([createdAt])
+  @@index([productId])
+}
+
+model WarehouseTask {
+  id                  String     @id @default(cuid())
+  type                TaskType   @default(INCOMING)
+  status              TaskStatus @default(OPEN)
+  productId           String
+  expectedQty         Int
+  note                String?
+  targetLocationId    String?
+  createdById         String?
+  completedById       String?
+  completedAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  product             Product    @relation(fields: [productId], references: [id])
+  targetLocation      Location?  @relation(fields: [targetLocationId], references: [id])
+  createdBy           User?      @relation("TaskCreator", fields: [createdById], references: [id])
+  completedBy         User?      @relation("TaskCompleter", fields: [completedById], references: [id])
+
+  @@index([status])
   @@index([createdAt])
   @@index([productId])
 }
