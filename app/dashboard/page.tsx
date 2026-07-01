@@ -11,6 +11,11 @@ function startOfToday() {
   return date
 }
 
+function formatDate(date: Date | null) {
+  if (!date) return '-'
+  return date.toLocaleString('ru-RU')
+}
+
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ recentSort?: string, recentOrder?: string, locationSort?: string, locationOrder?: string }> }) {
   const { recentSort = '', recentOrder = '', locationSort = '', locationOrder = '' } = await searchParams
   const recentDirection = recentOrder === 'desc' ? 'desc' : recentOrder === 'asc' ? 'asc' : undefined
@@ -23,13 +28,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     qty: { qty: recentDirection }
   }
   const today = startOfToday()
-  const [products, locations, occupiedLocations, totalStockAgg, movementsToday, openTasks, recentMovements, topLocations] = await Promise.all([
+  const [products, locations, occupiedLocations, totalStockAgg, movementsToday, openTasks, completedToday, recentCompletedTasks, recentMovements, topLocations] = await Promise.all([
     prisma.product.count({ where: { archived: false } }),
     prisma.location.count({ where: { active: true } }),
     prisma.location.count({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } } }),
     prisma.inventory.aggregate({ where: { qty: { gt: 0 }, product: { archived: false }, location: { active: true } }, _sum: { qty: true } }),
     prisma.movement.count({ where: { createdAt: { gte: today } } }),
     prisma.warehouseTask.count({ where: { status: 'OPEN' } }),
+    prisma.warehouseTask.count({ where: { status: 'COMPLETED', completedAt: { gte: today } } }),
+    prisma.warehouseTask.findMany({
+      where: { status: 'COMPLETED' },
+      take: 5,
+      orderBy: { completedAt: 'desc' },
+      include: {
+        completedBy: true,
+        lines: { include: { product: true, targetLocation: true }, orderBy: { createdAt: 'asc' } }
+      }
+    }),
     prisma.movement.findMany({ take: 8, orderBy: recentDirection && recentOrderByMap[recentSort] ? recentOrderByMap[recentSort] : { createdAt: 'desc' }, include: { product: true, fromLocation: true, toLocation: true } }),
     prisma.location.findMany({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } }, take: 10, orderBy: { code: 'asc' }, include: { inventory: { where: { qty: { gt: 0 } }, include: { product: true } } } })
   ])
@@ -43,6 +58,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     ['Занято мест', occupiedLocations, '/locations'],
     ['Свободно мест', emptyLocations, '/locations'],
     ['Открытых задач', openTasks, '/my-tasks'],
+    ['Выполнено сегодня', completedToday, '/tasks'],
     ['Движений сегодня', movementsToday, '/movements']
   ]
 
@@ -74,7 +90,32 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       </div>
     </div>
 
-    <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">{cards.map(([label, value, href]) => <Link className="card p-5 hover:shadow-md" key={label} href={href as string}><div className="text-sm text-gray-500">{label}</div><div className="mt-2 text-3xl font-bold">{value}</div></Link>)}</div>
+    <div className="grid gap-4 md:grid-cols-4 xl:grid-cols-8">{cards.map(([label, value, href]) => <Link className="card p-5 hover:shadow-md" key={label} href={href as string}><div className="text-sm text-gray-500">{label}</div><div className="mt-2 text-3xl font-bold">{value}</div></Link>)}</div>
+
+    <section className="card mt-6 overflow-hidden">
+      <div className="border-b p-4 font-semibold">🔔 Недавно выполненные задачи</div>
+      <div className="grid gap-3 p-4">
+        {recentCompletedTasks.map(task => {
+          const totalQty = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
+          return <Link key={task.id} href="/tasks" className="rounded-xl border p-4 hover:bg-gray-50">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold text-emerald-700">Приход подтверждён</div>
+                <div className="mt-1 text-sm text-gray-600">УПД: {task.documentNumber || '-'} · Заказчик: {task.buyer || '-'} · Итого: {totalQty}</div>
+                <div className="mt-2 space-y-1 text-sm">
+                  {task.lines.map(line => <div key={line.id}>{line.productNameSnapshot || line.product.name} · {line.expectedQty} шт. · {line.targetLocation?.code || '-'}</div>)}
+                </div>
+              </div>
+              <div className="text-right text-xs text-gray-500">
+                <div>{formatDate(task.completedAt)}</div>
+                <div>{task.completedBy?.name || task.completedBy?.email || '-'}</div>
+              </div>
+            </div>
+          </Link>
+        })}
+        {!recentCompletedTasks.length && <div className="text-sm text-gray-500">Выполненных задач пока нет.</div>}
+      </div>
+    </section>
 
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <section className="card overflow-hidden">
