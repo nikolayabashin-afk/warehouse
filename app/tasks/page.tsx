@@ -15,6 +15,13 @@ function statusLabel(status: string) {
   return status
 }
 
+function statusClass(status: string) {
+  const base = 'inline-flex rounded-full px-3 py-1 text-xs font-semibold'
+  if (status === 'OPEN') return `${base} bg-amber-100 text-amber-800`
+  if (status === 'COMPLETED') return `${base} bg-emerald-100 text-emerald-800`
+  return `${base} bg-gray-100 text-gray-600`
+}
+
 export default async function TasksPage() {
   const session = await getServerSession(authOptions)
   const role = (session?.user as any)?.role
@@ -55,7 +62,7 @@ export default async function TasksPage() {
         <tbody>
           {tasks.map(task => <tr key={task.id}>
             <td className="td whitespace-nowrap">{task.createdAt.toLocaleString('ru-RU')}</td>
-            <td className="td"><span className={task.status === 'OPEN' ? 'badge bg-amber-100 text-amber-800' : task.status === 'COMPLETED' ? 'badge bg-emerald-100 text-emerald-800' : 'badge bg-gray-100 text-gray-600'}>{statusLabel(task.status)}</span></td>
+            <td className="td"><span className={statusClass(task.status)}>{statusLabel(task.status)}</span></td>
             <td className="td"><Link className="font-medium hover:underline" href={`/products/${task.product.id}`}>{task.product.name}</Link><div className="text-xs text-gray-500">{task.product.sku}</div>{task.note && <div className="mt-1 text-xs text-gray-500">{task.note}</div>}</td>
             <td className="td font-semibold">{task.expectedQty}</td>
             <td className="td font-bold">{task.targetLocation ? <Link className="text-blue-600 hover:underline" href={`/locations/${task.targetLocation.id}`}>{task.targetLocation.code}</Link> : '-'}</td>
