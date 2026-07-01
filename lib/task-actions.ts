@@ -68,15 +68,19 @@ export async function createIncomingTask(formData: FormData) {
     data: {
       type: 'INCOMING',
       status: 'OPEN',
-      productId,
-      expectedQty,
       buyer,
       documentNumber,
       documentDate,
-      articleNumber: articleNumberRaw || product.sku,
-      productNameSnapshot: productNameSnapshotRaw || product.name,
       note,
-      createdById: user.id
+      createdById: user.id,
+      lines: {
+        create: [{
+          productId,
+          expectedQty,
+          articleNumber: articleNumberRaw || product.sku,
+          productNameSnapshot: productNameSnapshotRaw || product.name
+        }]
+      }
     }
   })
 
@@ -89,36 +93,50 @@ export async function confirmIncomingTask(formData: FormData) {
   if (!user) throw new Error('Нужно войти в систему')
 
   const taskId = clean(formData.get('taskId'))
-  const locationCode = normalizeLocation(clean(formData.get('location')))
   if (!taskId) throw new Error('Задача не найдена')
-  if (!locationCode) throw new Error('Укажите место хранения')
 
-  const task = await prisma.warehouseTask.findUnique({ where: { id: taskId }, include: { product: true } })
+  const task = await prisma.warehouseTask.findUnique({
+    where: { id: taskId },
+    include: { lines: { include: { product: true } } }
+  })
   if (!task || task.status !== 'OPEN') throw new Error('Задача уже закрыта или не найдена')
+  if (!task.lines.length) throw new Error('В задаче нет товарных строк')
 
-  const location = await prisma.location.upsert({ where: { code: locationCode }, update: { active: true }, create: { code: locationCode } })
+  const locationCodesByLine = task.lines.map(line => ({ line, code: normalizeLocation(clean(formData.get(`location_${line.id}`))) }))
+  if (locationCodesByLine.some(item => !item.code)) throw new Error('Укажите место хранения для каждой строки')
 
   await prisma.$transaction(async tx => {
-    const existing = await tx.inventory.findFirst({ where: { productId: task.productId, locationId: location.id, batch: null } })
-    if (existing) await tx.inventory.update({ where: { id: existing.id }, data: { qty: existing.qty + task.expectedQty } })
-    else await tx.inventory.create({ data: { productId: task.productId, locationId: location.id, qty: task.expectedQty } })
+    const firstLocationId = await Promise.resolve().then(async () => {
+      let firstId: string | null = null
+      for (const { line, code } of locationCodesByLine) {
+        const location = await tx.location.upsert({ where: { code }, update: { active: true }, create: { code } })
+        if (!firstId) firstId = location.id
 
-    await tx.product.update({ where: { id: task.productId }, data: { lastLocation: location.code } })
-    await tx.movement.create({
-      data: {
-        type: 'RECEIVE',
-        productId: task.productId,
-        toLocationId: location.id,
-        qty: task.expectedQty,
-        note: `Задача прихода: ${task.productNameSnapshot || task.product.name}; артикул: ${task.articleNumber || task.product.sku}; заказчик: ${task.buyer || '-'}; ${task.note || 'без примечания'}`,
-        userId: user.id
+        const existing = await tx.inventory.findFirst({ where: { productId: line.productId, locationId: location.id, batch: null } })
+        if (existing) await tx.inventory.update({ where: { id: existing.id }, data: { qty: existing.qty + line.expectedQty } })
+        else await tx.inventory.create({ data: { productId: line.productId, locationId: location.id, qty: line.expectedQty } })
+
+        await tx.product.update({ where: { id: line.productId }, data: { lastLocation: location.code } })
+        await tx.movement.create({
+          data: {
+            type: 'RECEIVE',
+            productId: line.productId,
+            toLocationId: location.id,
+            qty: line.expectedQty,
+            note: `Задача прихода: УПД ${task.documentNumber || '-'}; ${line.productNameSnapshot || line.product.name}; артикул: ${line.articleNumber || line.product.sku}; заказчик: ${task.buyer || '-'}; ${task.note || 'без примечания'}`,
+            userId: user.id
+          }
+        })
+        await tx.warehouseTaskLine.update({ where: { id: line.id }, data: { targetLocationId: location.id } })
       }
+      return firstId
     })
+
     await tx.warehouseTask.update({
       where: { id: task.id },
       data: {
         status: 'COMPLETED',
-        targetLocationId: location.id,
+        targetLocationId: firstLocationId,
         completedById: user.id,
         completedAt: new Date()
       }
