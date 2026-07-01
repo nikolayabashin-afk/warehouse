@@ -16,8 +16,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const recentDirection = recentOrder === 'desc' ? 'desc' : recentOrder === 'asc' ? 'asc' : undefined
   const locationDirection = locationOrder === 'desc' ? 'desc' : locationOrder === 'asc' ? 'asc' : undefined
   const recentOrderByMap: Record<string, any> = {
+    date: { createdAt: recentDirection },
     type: { type: recentDirection },
     product: { product: { name: recentDirection } },
+    route: { createdAt: recentDirection },
     qty: { qty: recentDirection }
   }
   const today = startOfToday()
@@ -54,8 +56,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       return locationDirection === 'asc' ? result : -result
     })
 
-  const recentSortParams = { recentSort, recentOrder, locationSort, locationOrder }
-  const locationSortParams = { recentSort, recentOrder, locationSort, locationOrder }
+  const sortParams = { recentSort, recentOrder, locationSort, locationOrder }
 
   return <div>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -75,7 +76,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <section className="card overflow-hidden">
         <div className="border-b p-4 font-semibold">Последние движения</div>
-        <table className="w-full"><thead><tr><SortHeader label="Тип" sortKey="type" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /><SortHeader label="Товар" sortKey="product" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /><th className="th">Маршрут</th><SortHeader label="Кол-во" sortKey="qty" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /></tr></thead><tbody>
+        <table className="w-full"><thead><tr><SortHeader label="Тип" sortKey="type" currentSort={recentSort} currentOrder={recentOrder} searchParams={sortParams} sortParam="recentSort" orderParam="recentOrder" /><SortHeader label="Товар" sortKey="product" currentSort={recentSort} currentOrder={recentOrder} searchParams={sortParams} sortParam="recentSort" orderParam="recentOrder" /><th className="th">Маршрут</th><SortHeader label="Кол-во" sortKey="qty" currentSort={recentSort} currentOrder={recentOrder} searchParams={sortParams} sortParam="recentSort" orderParam="recentOrder" /></tr></thead><tbody>
           {recentMovements.map(m => <tr key={m.id}><td className="td"><OperationBadge type={m.type} /></td><td className="td"><Link className="font-medium hover:underline" href={`/products/${m.product.id}`}>{m.product.name}</Link><div className="text-xs text-gray-500">{m.product.sku}</div></td><td className="td text-sm">{m.fromLocation?.code || '-'} → {m.toLocation?.code || '-'}</td><td className="td font-semibold">{m.qty}</td></tr>)}
           {!recentMovements.length && <tr><td className="td text-gray-500" colSpan={4}>Движений пока нет.</td></tr>}
         </tbody></table>
@@ -83,7 +84,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <section className="card overflow-hidden">
         <div className="border-b p-4 font-semibold">Топ заполненных мест</div>
-        <table className="w-full"><thead><tr><SortHeader label="Место" sortKey="location" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Остаток" sortKey="total" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Позиций" sortKey="rows" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Вместимость" sortKey="capacity" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /></tr></thead><tbody>
+        <table className="w-full"><thead><tr><SortHeader label="Место" sortKey="location" currentSort={locationSort} currentOrder={locationOrder} searchParams={sortParams} sortParam="locationSort" orderParam="locationOrder" /><SortHeader label="Остаток" sortKey="total" currentSort={locationSort} currentOrder={locationOrder} searchParams={sortParams} sortParam="locationSort" orderParam="locationOrder" /><SortHeader label="Позиций" sortKey="rows" currentSort={locationSort} currentOrder={locationOrder} searchParams={sortParams} sortParam="locationSort" orderParam="locationOrder" /><SortHeader label="Вместимость" sortKey="capacity" currentSort={locationSort} currentOrder={locationOrder} searchParams={sortParams} sortParam="locationSort" orderParam="locationOrder" /></tr></thead><tbody>
           {sortedTopLocations.map(location => <tr key={location.id}><td className="td font-bold"><Link className="text-blue-600 hover:underline" href={`/locations/${location.id}`}>{location.code}</Link></td><td className="td">{location.total}</td><td className="td">{location.rows}</td><td className="td">{location.capacity || ''}</td></tr>)}
           {!sortedTopLocations.length && <tr><td className="td text-gray-500" colSpan={4}>Заполненных мест пока нет.</td></tr>}
         </tbody></table>
