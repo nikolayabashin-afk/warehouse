@@ -2,6 +2,7 @@ import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { DUMMY_PASSWORD_HASH } from '@/lib/security'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
@@ -10,8 +11,6 @@ if (!secret || secret.length < 32) {
   throw new Error('Authentication secret is missing or too short. Set NEXTAUTH_SECRET or AUTH_SECRET to a random value of at least 32 characters.')
 }
 
-const BCRYPT_COST = 12
-const DUMMY_PASSWORD_HASH = '$2a$12$C6UzMDM.H6dfI/f/IKcEeO4mheM9XsvmB5XuqOyTcxkecpChFDN6G'
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const MAX_LOGIN_ATTEMPTS = 8
 const allowedRedirectHosts = new Set(
@@ -131,5 +130,3 @@ export const authOptions: NextAuthOptions = {
     }
   }
 }
-
-export { BCRYPT_COST }
