@@ -16,6 +16,14 @@ function asInt(value: FormDataEntryValue | null, fieldName = 'Количеств
   return n
 }
 
+function asDate(value: FormDataEntryValue | null) {
+  const raw = clean(value)
+  if (!raw) return null
+  const date = new Date(`${raw}T00:00:00`)
+  if (Number.isNaN(date.getTime())) throw new Error('Дата УПД указана неверно')
+  return date
+}
+
 function normalizeLocation(codeRaw: string) {
   return clean(codeRaw)
     .replace(/\s+/g, '')
@@ -44,8 +52,17 @@ export async function createIncomingTask(formData: FormData) {
 
   const productId = clean(formData.get('productId'))
   const expectedQty = asInt(formData.get('qty'))
+  const buyer = clean(formData.get('buyer')) || null
+  const documentNumber = clean(formData.get('documentNumber')) || null
+  const documentDate = asDate(formData.get('documentDate'))
+  const articleNumberRaw = clean(formData.get('articleNumber'))
+  const productNameSnapshotRaw = clean(formData.get('productNameSnapshot'))
   const note = clean(formData.get('note')) || null
   if (!productId) throw new Error('Выберите товар')
+  if (!buyer) throw new Error('Укажите заказчика / покупателя')
+
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { sku: true, name: true } })
+  if (!product) throw new Error('Товар не найден')
 
   await prisma.warehouseTask.create({
     data: {
@@ -53,6 +70,11 @@ export async function createIncomingTask(formData: FormData) {
       status: 'OPEN',
       productId,
       expectedQty,
+      buyer,
+      documentNumber,
+      documentDate,
+      articleNumber: articleNumberRaw || product.sku,
+      productNameSnapshot: productNameSnapshotRaw || product.name,
       note,
       createdById: user.id
     }
@@ -88,7 +110,7 @@ export async function confirmIncomingTask(formData: FormData) {
         productId: task.productId,
         toLocationId: location.id,
         qty: task.expectedQty,
-        note: `Задача прихода: ${task.note || 'без примечания'}`,
+        note: `Задача прихода: ${task.productNameSnapshot || task.product.name}; артикул: ${task.articleNumber || task.product.sku}; заказчик: ${task.buyer || '-'}; ${task.note || 'без примечания'}`,
         userId: user.id
       }
     })
