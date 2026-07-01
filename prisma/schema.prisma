@@ -45,35 +45,37 @@ model User {
 }
 
 model Product {
-  id                String          @id @default(cuid())
-  sku               String          @unique
+  id                String              @id @default(cuid())
+  sku               String              @unique
   name              String
   manufacturer      String?
   model             String?
   category          String?
   preferredLocation String?
   lastLocation      String?
-  archived          Boolean         @default(false)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  archived          Boolean             @default(false)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   inventory         Inventory[]
   movements         Movement[]
   tasks             WarehouseTask[]
+  taskLines         WarehouseTaskLine[]
 }
 
 model Location {
-  id          String          @id @default(cuid())
-  code        String          @unique
+  id          String              @id @default(cuid())
+  code        String              @unique
   zone        String?
-  type        String          @default("PERMANENT")
+  type        String              @default("PERMANENT")
   capacity    Int?
-  active      Boolean         @default(true)
+  active      Boolean             @default(true)
   note        String?
-  createdAt   DateTime        @default(now())
+  createdAt   DateTime            @default(now())
   inventory   Inventory[]
-  fromMoves   Movement[]      @relation("FromLocation")
-  toMoves     Movement[]      @relation("ToLocation")
+  fromMoves   Movement[]          @relation("FromLocation")
+  toMoves     Movement[]          @relation("ToLocation")
   taskTargets WarehouseTask[]
+  lineTargets WarehouseTaskLine[]
 }
 
 model Inventory {
@@ -113,31 +115,55 @@ model Movement {
 }
 
 model WarehouseTask {
-  id                  String     @id @default(cuid())
-  type                TaskType   @default(INCOMING)
-  status              TaskStatus @default(OPEN)
-  productId           String
-  expectedQty         Int
+  id                  String              @id @default(cuid())
+  type                TaskType            @default(INCOMING)
+  status              TaskStatus          @default(OPEN)
   buyer               String?
   documentNumber      String?
   documentDate        DateTime?
-  articleNumber       String?
-  productNameSnapshot String?
   note                String?
   targetLocationId    String?
   createdById         String?
   completedById       String?
   completedAt         DateTime?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
-  product             Product    @relation(fields: [productId], references: [id])
-  targetLocation      Location?  @relation(fields: [targetLocationId], references: [id])
-  createdBy           User?      @relation("TaskCreator", fields: [createdById], references: [id])
-  completedBy         User?      @relation("TaskCompleter", fields: [completedById], references: [id])
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  // Legacy single-line fields kept optional for safe migration of older data.
+  productId           String?
+  expectedQty         Int?
+  articleNumber       String?
+  productNameSnapshot String?
+
+  product             Product?            @relation(fields: [productId], references: [id])
+  targetLocation      Location?           @relation(fields: [targetLocationId], references: [id])
+  createdBy           User?               @relation("TaskCreator", fields: [createdById], references: [id])
+  completedBy         User?               @relation("TaskCompleter", fields: [completedById], references: [id])
+  lines               WarehouseTaskLine[]
 
   @@index([status])
   @@index([createdAt])
   @@index([productId])
   @@index([buyer])
   @@index([articleNumber])
+}
+
+model WarehouseTaskLine {
+  id                  String         @id @default(cuid())
+  taskId              String
+  productId           String
+  expectedQty         Int
+  articleNumber       String?
+  productNameSnapshot String?
+  targetLocationId    String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  task                WarehouseTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  product             Product        @relation(fields: [productId], references: [id])
+  targetLocation      Location?      @relation(fields: [targetLocationId], references: [id])
+
+  @@index([taskId])
+  @@index([productId])
+  @@index([articleNumber])
+  @@index([targetLocationId])
 }
