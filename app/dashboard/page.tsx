@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { OperationBadge } from '@/app/components/OperationBadge'
+import { SortHeader } from '@/app/components/SortHeader'
 
 function startOfToday() {
   const date = new Date()
@@ -10,7 +11,15 @@ function startOfToday() {
   return date
 }
 
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ recentSort?: string, recentOrder?: string, locationSort?: string, locationOrder?: string }> }) {
+  const { recentSort = '', recentOrder = '', locationSort = '', locationOrder = '' } = await searchParams
+  const recentDirection = recentOrder === 'desc' ? 'desc' : recentOrder === 'asc' ? 'asc' : undefined
+  const locationDirection = locationOrder === 'desc' ? 'desc' : locationOrder === 'asc' ? 'asc' : undefined
+  const recentOrderByMap: Record<string, any> = {
+    type: { type: recentDirection },
+    product: { product: { name: recentDirection } },
+    qty: { qty: recentDirection }
+  }
   const today = startOfToday()
   const [products, locations, occupiedLocations, totalStockAgg, movementsToday, recentMovements, topLocations] = await Promise.all([
     prisma.product.count({ where: { archived: false } }),
@@ -18,7 +27,7 @@ export default async function Dashboard() {
     prisma.location.count({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } } }),
     prisma.inventory.aggregate({ where: { qty: { gt: 0 }, product: { archived: false }, location: { active: true } }, _sum: { qty: true } }),
     prisma.movement.count({ where: { createdAt: { gte: today } } }),
-    prisma.movement.findMany({ take: 8, orderBy: { createdAt: 'desc' }, include: { product: true, fromLocation: true, toLocation: true } }),
+    prisma.movement.findMany({ take: 8, orderBy: recentDirection && recentOrderByMap[recentSort] ? recentOrderByMap[recentSort] : { createdAt: 'desc' }, include: { product: true, fromLocation: true, toLocation: true } }),
     prisma.location.findMany({ where: { active: true, inventory: { some: { qty: { gt: 0 } } } }, take: 10, orderBy: { code: 'asc' }, include: { inventory: { where: { qty: { gt: 0 } }, include: { product: true } } } })
   ])
 
@@ -35,7 +44,18 @@ export default async function Dashboard() {
 
   const sortedTopLocations = topLocations
     .map(location => ({ ...location, total: location.inventory.reduce((sum, item) => sum + item.qty, 0), rows: location.inventory.length }))
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => {
+      if (!locationDirection) return b.total - a.total
+      let result = 0
+      if (locationSort === 'location') result = a.code.localeCompare(b.code, 'ru')
+      if (locationSort === 'total') result = a.total - b.total
+      if (locationSort === 'rows') result = a.rows - b.rows
+      if (locationSort === 'capacity') result = (a.capacity || 0) - (b.capacity || 0)
+      return locationDirection === 'asc' ? result : -result
+    })
+
+  const recentSortParams = { recentSort, recentOrder, locationSort, locationOrder }
+  const locationSortParams = { recentSort, recentOrder, locationSort, locationOrder }
 
   return <div>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -55,7 +75,7 @@ export default async function Dashboard() {
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <section className="card overflow-hidden">
         <div className="border-b p-4 font-semibold">Последние движения</div>
-        <table className="w-full"><thead><tr><th className="th">Тип</th><th className="th">Товар</th><th className="th">Маршрут</th><th className="th">Кол-во</th></tr></thead><tbody>
+        <table className="w-full"><thead><tr><SortHeader label="Тип" sortKey="type" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /><SortHeader label="Товар" sortKey="product" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /><th className="th">Маршрут</th><SortHeader label="Кол-во" sortKey="qty" currentSort={recentSort} currentOrder={recentOrder} searchParams={{ ...recentSortParams, sort: undefined, order: undefined }} /></tr></thead><tbody>
           {recentMovements.map(m => <tr key={m.id}><td className="td"><OperationBadge type={m.type} /></td><td className="td"><Link className="font-medium hover:underline" href={`/products/${m.product.id}`}>{m.product.name}</Link><div className="text-xs text-gray-500">{m.product.sku}</div></td><td className="td text-sm">{m.fromLocation?.code || '-'} → {m.toLocation?.code || '-'}</td><td className="td font-semibold">{m.qty}</td></tr>)}
           {!recentMovements.length && <tr><td className="td text-gray-500" colSpan={4}>Движений пока нет.</td></tr>}
         </tbody></table>
@@ -63,7 +83,7 @@ export default async function Dashboard() {
 
       <section className="card overflow-hidden">
         <div className="border-b p-4 font-semibold">Топ заполненных мест</div>
-        <table className="w-full"><thead><tr><th className="th">Место</th><th className="th">Остаток</th><th className="th">Позиций</th><th className="th">Вместимость</th></tr></thead><tbody>
+        <table className="w-full"><thead><tr><SortHeader label="Место" sortKey="location" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Остаток" sortKey="total" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Позиций" sortKey="rows" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /><SortHeader label="Вместимость" sortKey="capacity" currentSort={locationSort} currentOrder={locationOrder} searchParams={{ ...locationSortParams, sort: undefined, order: undefined }} /></tr></thead><tbody>
           {sortedTopLocations.map(location => <tr key={location.id}><td className="td font-bold"><Link className="text-blue-600 hover:underline" href={`/locations/${location.id}`}>{location.code}</Link></td><td className="td">{location.total}</td><td className="td">{location.rows}</td><td className="td">{location.capacity || ''}</td></tr>)}
           {!sortedTopLocations.length && <tr><td className="td text-gray-500" colSpan={4}>Заполненных мест пока нет.</td></tr>}
         </tbody></table>
