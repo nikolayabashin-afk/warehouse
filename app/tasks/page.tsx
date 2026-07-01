@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { ProductPicker } from '@/app/components/ProductPicker'
-import { createIncomingTask, cancelTask } from '@/lib/task-actions'
+import { createIncomingTask, importUpdIncomingTask, cancelTask } from '@/lib/task-actions'
 
 function statusLabel(status: string) {
   if (status === 'OPEN') return 'Открыта'
@@ -56,7 +56,16 @@ export default async function TasksPage() {
     </div>
 
     <section className="card mb-6 p-5">
-      <h2 className="mb-4 text-xl font-semibold">Создать задачу прихода</h2>
+      <h2 className="mb-4 text-xl font-semibold">Импорт УПД из Excel</h2>
+      <form action={importUpdIncomingTask} className="grid gap-4 max-w-3xl">
+        <label className="text-sm font-medium">Excel УПД (.xlsx / .xls)<input className="input mt-1" name="updFile" type="file" accept=".xlsx,.xls" required /></label>
+        <p className="text-xs text-gray-500">Система прочитает номер УПД, дату, покупателя, артикулы, названия товаров и количество. Если товара с таким артикулом ещё нет в базе, он будет создан автоматически.</p>
+        <button className="btn w-fit">Импортировать и создать задачу</button>
+      </form>
+    </section>
+
+    <section className="card mb-6 p-5">
+      <h2 className="mb-4 text-xl font-semibold">Создать задачу прихода вручную</h2>
       <form action={createIncomingTask} className="grid gap-4 max-w-3xl">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium">Заказчик / Покупатель<input className="input mt-1" name="buyer" placeholder="Например: ГКБ №1" required /></label>
@@ -76,7 +85,6 @@ export default async function TasksPage() {
             </div>
           </div>
         </div>
-        <p className="text-xs text-gray-500">Сейчас вручную создаётся одна строка. После импорта УПД система сможет создавать несколько строк внутри этой же задачи.</p>
         <button className="btn w-fit">Создать задачу</button>
       </form>
     </section>
