@@ -37,7 +37,12 @@ export default async function TasksPage() {
     prisma.warehouseTask.findMany({
       take: 200,
       orderBy: { createdAt: 'desc' },
-      include: { product: true, targetLocation: true, createdBy: true, completedBy: true }
+      include: {
+        targetLocation: true,
+        createdBy: true,
+        completedBy: true,
+        lines: { include: { product: true, targetLocation: true }, orderBy: { createdAt: 'asc' } }
+      }
     })
   ])
 
@@ -45,7 +50,7 @@ export default async function TasksPage() {
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h1 className="text-3xl font-bold">Задачи</h1>
-        <p className="mt-1 text-sm text-gray-500">Менеджер создаёт задачу прихода, работник подтверждает место хранения.</p>
+        <p className="mt-1 text-sm text-gray-500">Одна задача = один УПД / поставка, внутри могут быть несколько товарных строк.</p>
       </div>
       <Link className="btn-secondary" href="/my-tasks">Панель работника</Link>
     </div>
@@ -53,16 +58,25 @@ export default async function TasksPage() {
     <section className="card mb-6 p-5">
       <h2 className="mb-4 text-xl font-semibold">Создать задачу прихода</h2>
       <form action={createIncomingTask} className="grid gap-4 max-w-3xl">
-        <ProductPicker products={products} />
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium">Заказчик / Покупатель<input className="input mt-1" name="buyer" placeholder="Например: ГКБ №1" required /></label>
-          <label className="text-sm font-medium">Количество по документам<input className="input mt-1" name="qty" type="number" min="1" required /></label>
-          <label className="text-sm font-medium">Артикул из УПД<input className="input mt-1" name="articleNumber" placeholder="Если отличается от артикула товара" /></label>
-          <label className="text-sm font-medium">Название товара из УПД<input className="input mt-1" name="productNameSnapshot" placeholder="Если отличается от названия в базе" /></label>
-          <label className="text-sm font-medium">Номер УПД<input className="input mt-1" name="documentNumber" placeholder="Например: 123" /></label>
+          <label className="text-sm font-medium">Номер УПД<input className="input mt-1" name="documentNumber" placeholder="Например: 619" /></label>
           <label className="text-sm font-medium">Дата УПД<input className="input mt-1" name="documentDate" type="date" /></label>
+          <label className="text-sm font-medium">Примечание<input className="input mt-1" name="note" placeholder="Поставщик, комментарий" /></label>
         </div>
-        <label className="text-sm font-medium">Примечание<input className="input mt-1" name="note" placeholder="Поставщик, комментарий, особенности приёмки" /></label>
+
+        <div className="rounded-xl border p-4">
+          <div className="mb-3 font-semibold">Товарная строка</div>
+          <div className="grid gap-4">
+            <ProductPicker products={products} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium">Количество по документам<input className="input mt-1" name="qty" type="number" min="1" required /></label>
+              <label className="text-sm font-medium">Артикул из УПД<input className="input mt-1" name="articleNumber" placeholder="Если отличается от артикула товара" /></label>
+              <label className="text-sm font-medium sm:col-span-2">Название товара из УПД<input className="input mt-1" name="productNameSnapshot" placeholder="Если отличается от названия в базе" /></label>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500">Сейчас вручную создаётся одна строка. После импорта УПД система сможет создавать несколько строк внутри этой же задачи.</p>
         <button className="btn w-fit">Создать задачу</button>
       </form>
     </section>
@@ -70,20 +84,22 @@ export default async function TasksPage() {
     <section className="card overflow-hidden">
       <div className="border-b p-4 font-semibold">Все задачи</div>
       <table className="w-full">
-        <thead><tr><th className="th">Дата</th><th className="th">Статус</th><th className="th">Заказчик</th><th className="th">Товар / УПД</th><th className="th">Кол-во</th><th className="th">Место</th><th className="th">Создал</th><th className="th">Выполнил</th><th className="th">Действие</th></tr></thead>
+        <thead><tr><th className="th">Дата</th><th className="th">Статус</th><th className="th">Заказчик / УПД</th><th className="th">Строки</th><th className="th">Итого</th><th className="th">Создал</th><th className="th">Выполнил</th><th className="th">Действие</th></tr></thead>
         <tbody>
-          {tasks.map(task => <tr key={task.id}>
-            <td className="td whitespace-nowrap">{task.createdAt.toLocaleString('ru-RU')}</td>
-            <td className="td"><span className={statusClass(task.status)}>{statusLabel(task.status)}</span></td>
-            <td className="td font-medium">{task.buyer || '-'}</td>
-            <td className="td"><Link className="font-medium hover:underline" href={`/products/${task.product.id}`}>{task.productNameSnapshot || task.product.name}</Link><div className="text-xs text-gray-500">Артикул: {task.articleNumber || task.product.sku}</div><div className="text-xs text-gray-500">УПД: {task.documentNumber || '-'} от {formatDate(task.documentDate)}</div>{task.note && <div className="mt-1 text-xs text-gray-500">{task.note}</div>}</td>
-            <td className="td font-semibold">{task.expectedQty}</td>
-            <td className="td font-bold">{task.targetLocation ? <Link className="text-blue-600 hover:underline" href={`/locations/${task.targetLocation.id}`}>{task.targetLocation.code}</Link> : '-'}</td>
-            <td className="td">{task.createdBy?.name || task.createdBy?.email || '-'}</td>
-            <td className="td">{task.completedBy?.name || task.completedBy?.email || '-'}</td>
-            <td className="td">{task.status === 'OPEN' ? <form action={cancelTask}><input type="hidden" name="taskId" value={task.id} /><button className="text-sm text-red-600 hover:underline">Отменить</button></form> : <span className="text-xs text-gray-400">Закрыта</span>}</td>
-          </tr>)}
-          {!tasks.length && <tr><td className="td text-gray-500" colSpan={9}>Задач пока нет.</td></tr>}
+          {tasks.map(task => {
+            const totalQty = task.lines.reduce((sum, line) => sum + line.expectedQty, 0)
+            return <tr key={task.id}>
+              <td className="td whitespace-nowrap">{task.createdAt.toLocaleString('ru-RU')}</td>
+              <td className="td"><span className={statusClass(task.status)}>{statusLabel(task.status)}</span></td>
+              <td className="td"><div className="font-medium">{task.buyer || '-'}</div><div className="text-xs text-gray-500">УПД: {task.documentNumber || '-'} от {formatDate(task.documentDate)}</div>{task.note && <div className="mt-1 text-xs text-gray-500">{task.note}</div>}</td>
+              <td className="td min-w-[320px]">{task.lines.map(line => <div key={line.id} className="mb-2 last:mb-0"><Link className="font-medium hover:underline" href={`/products/${line.product.id}`}>{line.productNameSnapshot || line.product.name}</Link><div className="text-xs text-gray-500">Артикул: {line.articleNumber || line.product.sku} · Кол-во: {line.expectedQty} · Место: {line.targetLocation?.code || '-'}</div></div>)}</td>
+              <td className="td font-semibold">{totalQty}</td>
+              <td className="td">{task.createdBy?.name || task.createdBy?.email || '-'}</td>
+              <td className="td">{task.completedBy?.name || task.completedBy?.email || '-'}</td>
+              <td className="td">{task.status === 'OPEN' ? <form action={cancelTask}><input type="hidden" name="taskId" value={task.id} /><button className="text-sm text-red-600 hover:underline">Отменить</button></form> : <span className="text-xs text-gray-400">Закрыта</span>}</td>
+            </tr>
+          })}
+          {!tasks.length && <tr><td className="td text-gray-500" colSpan={8}>Задач пока нет.</td></tr>}
         </tbody>
       </table>
     </section>
