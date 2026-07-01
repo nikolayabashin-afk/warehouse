@@ -9,14 +9,27 @@ type SortHeaderProps = {
   currentOrder?: string
   searchParams?: Record<string, string | undefined>
   className?: string
+  sortParam?: string
+  orderParam?: string
 }
 
-export function SortHeader({ label, sortKey, currentSort = '', currentOrder = '', searchParams = {}, className = 'th' }: SortHeaderProps) {
+export function SortHeader(props: SortHeaderProps) {
+  const {
+    label,
+    sortKey,
+    currentSort = '',
+    currentOrder = '',
+    searchParams = {},
+    className = 'th',
+    sortParam = 'sort',
+    orderParam = 'order'
+  } = props
+
   const active = currentSort === sortKey
   const nextParams = new URLSearchParams()
 
   for (const [key, value] of Object.entries(searchParams)) {
-    if (value && key !== 'sort' && key !== 'order') nextParams.set(key, value)
+    if (value && key !== sortParam && key !== orderParam) nextParams.set(key, value)
   }
 
   let arrow = ''
@@ -31,8 +44,8 @@ export function SortHeader({ label, sortKey, currentSort = '', currentOrder = ''
   }
 
   if (nextOrder) {
-    nextParams.set('sort', sortKey)
-    nextParams.set('order', nextOrder)
+    nextParams.set(sortParam, sortKey)
+    nextParams.set(orderParam, nextOrder)
   }
 
   const href = nextParams.toString() ? `?${nextParams.toString()}` : '?'
