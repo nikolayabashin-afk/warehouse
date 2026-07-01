@@ -5,16 +5,25 @@ import { moveStock } from '@/lib/actions'
 import { StockPickerButton } from '@/app/components/StockPickerButton'
 import { ClearFormButton } from '@/app/components/ClearFormButton'
 import { ProductPicker } from '@/app/components/ProductPicker'
+import { SortHeader } from '@/app/components/SortHeader'
 
-export default async function Move({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error = '' } = await searchParams
+export default async function Move({ searchParams }: { searchParams: Promise<{ error?: string, sort?: string, order?: string }> }) {
+  const { error = '', sort = '', order = '' } = await searchParams
+  const direction = order === 'desc' ? 'desc' : order === 'asc' ? 'asc' : undefined
+  const orderByMap: Record<string, any> = {
+    product: [{ product: { name: direction } }],
+    location: [{ location: { code: direction } }],
+    qty: [{ qty: direction }]
+  }
   const products = await prisma.product.findMany({ where: { archived: false }, take: 500, orderBy: { name: 'asc' } })
   const locations = await prisma.location.findMany({ where: { active: true }, take: 500, orderBy: { code: 'asc' } })
   const inventory = await prisma.inventory.findMany({
     where: { qty: { gt: 0 }, product: { archived: false }, location: { active: true } },
     take: 300,
+    orderBy: direction && orderByMap[sort] ? orderByMap[sort] : [{ product: { name: 'asc' } }, { location: { code: 'asc' } }],
     include: { product: true, location: true }
   })
+  const sortParams = { error, sort, order }
 
   return <div>
     <h1 className="text-3xl font-bold mb-2">Перемещение товара</h1>
@@ -33,7 +42,7 @@ export default async function Move({ searchParams }: { searchParams: Promise<{ e
     </form>
 
     <div className="card overflow-hidden">
-      <table className="w-full"><thead><tr><th className="th">Товар</th><th className="th">Место хранения</th><th className="th">Доступно</th><th className="th">Действие</th></tr></thead><tbody>
+      <table className="w-full"><thead><tr><SortHeader label="Товар" sortKey="product" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Место хранения" sortKey="location" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Доступно" sortKey="qty" currentSort={sort} currentOrder={order} searchParams={sortParams} /><th className="th">Действие</th></tr></thead><tbody>
         {inventory.map(i => <tr key={i.id}><td className="td"><div className="font-medium">{i.product.name}</div><div className="text-xs text-gray-500">{i.product.sku}</div></td><td className="td font-bold">{i.location.code}</td><td className="td">{i.qty}</td><td className="td"><StockPickerButton mode="move" productId={i.productId} locationCode={i.location.code} qty={i.qty} /></td></tr>)}
         {!inventory.length && <tr><td className="td text-gray-500" colSpan={4}>Нет доступных остатков.</td></tr>}
       </tbody></table>
