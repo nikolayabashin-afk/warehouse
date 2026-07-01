@@ -1,6 +1,6 @@
 import { PrismaClient, Role } from '@prisma/client'
 import bcrypt from 'bcryptjs'
-import { BCRYPT_COST } from '../lib/auth'
+import { BCRYPT_COST } from '../lib/security'
 
 const prisma = new PrismaClient()
 
