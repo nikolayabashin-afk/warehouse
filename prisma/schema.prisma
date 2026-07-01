@@ -118,6 +118,11 @@ model WarehouseTask {
   status              TaskStatus @default(OPEN)
   productId           String
   expectedQty         Int
+  buyer               String?
+  documentNumber      String?
+  documentDate        DateTime?
+  articleNumber       String?
+  productNameSnapshot String?
   note                String?
   targetLocationId    String?
   createdById         String?
@@ -133,4 +138,6 @@ model WarehouseTask {
   @@index([status])
   @@index([createdAt])
   @@index([productId])
+  @@index([buyer])
+  @@index([articleNumber])
 }
