@@ -2,10 +2,21 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
+import { SortHeader } from '@/app/components/SortHeader'
 
-export default async function Inventory({ searchParams }: { searchParams: Promise<{ q?: string, location?: string, manufacturer?: string, category?: string, status?: string }> }) {
-  const { q = '', location = '', manufacturer = '', category = '', status = 'in_stock' } = await searchParams
+export default async function Inventory({ searchParams }: { searchParams: Promise<{ q?: string, location?: string, manufacturer?: string, category?: string, status?: string, sort?: string, order?: string }> }) {
+  const { q = '', location = '', manufacturer = '', category = '', status = 'in_stock', sort = '', order = '' } = await searchParams
   const term = q.trim()
+  const direction = order === 'desc' ? 'desc' : order === 'asc' ? 'asc' : undefined
+  const orderByMap: Record<string, any> = {
+    location: [{ location: { code: direction } }],
+    sku: [{ product: { sku: direction } }],
+    product: [{ product: { name: direction } }],
+    manufacturer: [{ product: { manufacturer: direction } }],
+    category: [{ product: { category: direction } }],
+    qty: [{ qty: direction }],
+    batch: [{ batch: direction }]
+  }
 
   const where = {
     ...(status === 'all' ? {} : { qty: { gt: 0 } }),
@@ -30,7 +41,7 @@ export default async function Inventory({ searchParams }: { searchParams: Promis
     prisma.inventory.findMany({
       where,
       take: 500,
-      orderBy: [{ location: { code: 'asc' } }, { product: { name: 'asc' } }],
+      orderBy: direction && orderByMap[sort] ? orderByMap[sort] : [{ location: { code: 'asc' } }, { product: { name: 'asc' } }],
       include: { product: true, location: true }
     }),
     prisma.location.findMany({ where: { active: true }, select: { code: true }, orderBy: { code: 'asc' } }),
@@ -41,6 +52,7 @@ export default async function Inventory({ searchParams }: { searchParams: Promis
   const manufacturers = manufacturersRaw.map(item => item.manufacturer).filter(Boolean) as string[]
   const categories = categoriesRaw.map(item => item.category).filter(Boolean) as string[]
   const total = rows.reduce((sum, row) => sum + row.qty, 0)
+  const sortParams = { q, location, manufacturer, category, status, sort, order }
 
   return <div>
     <div className="sticky top-[73px] z-10 mb-6 rounded-2xl border bg-white/95 p-4 shadow-sm backdrop-blur">
@@ -79,7 +91,7 @@ export default async function Inventory({ searchParams }: { searchParams: Promis
       </div>
     </form>
 
-    <div className="card overflow-hidden"><table className="w-full"><thead><tr><th className="th">Место</th><th className="th">Артикул</th><th className="th">Товар</th><th className="th">Производитель</th><th className="th">Категория</th><th className="th">Количество</th><th className="th">Партия</th></tr></thead><tbody>
+    <div className="card overflow-hidden"><table className="w-full"><thead><tr><SortHeader label="Место" sortKey="location" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Артикул" sortKey="sku" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Товар" sortKey="product" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Производитель" sortKey="manufacturer" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Категория" sortKey="category" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Количество" sortKey="qty" currentSort={sort} currentOrder={order} searchParams={sortParams} /><SortHeader label="Партия" sortKey="batch" currentSort={sort} currentOrder={order} searchParams={sortParams} /></tr></thead><tbody>
       {rows.map(r => <tr key={r.id}><td className="td font-bold"><Link className="text-blue-600 hover:underline" href={`/locations/${r.location.id}`}>{r.location.code}</Link></td><td className="td"><Link className="text-blue-600 hover:underline" href={`/products/${r.product.id}`}>{r.product.sku}</Link></td><td className="td font-medium"><Link className="hover:underline" href={`/products/${r.product.id}`}>{r.product.name}</Link></td><td className="td">{r.product.manufacturer || ''}</td><td className="td">{r.product.category || ''}</td><td className="td font-semibold">{r.qty}</td><td className="td">{r.batch || ''}</td></tr>)}
       {!rows.length && <tr><td className="td text-gray-500" colSpan={7}>Активных остатков по фильтрам нет.</td></tr>}
     </tbody></table></div>
