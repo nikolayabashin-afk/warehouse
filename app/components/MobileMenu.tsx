@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { signOut } from 'next-auth/react'
 
 export type NavSection = {
   title: string
@@ -52,6 +53,13 @@ export function MobileMenu({ navSections }: { navSections: NavSection[] }) {
                 {section.links.map(([label, href]) => <Link key={href} onClick={() => setOpen(false)} style={{ display: 'block', borderRadius: 18, background: 'rgba(255,255,255,.08)', padding: '16px 18px', fontSize: 22, fontWeight: 600, color: '#ffffff', textDecoration: 'none' }} href={href}>{label}</Link>)}
               </div>
             </div>)}
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              style={{ display: 'block', width: '100%', borderRadius: 18, background: 'rgba(239,68,68,.18)', padding: '16px 18px', fontSize: 22, fontWeight: 700, color: '#ffffff', textAlign: 'left' }}
+            >
+              Выйти
+            </button>
           </div>
         </nav>
       </div>
